@@ -1,5 +1,10 @@
 const jwt = require("jsonwebtoken");
-const { secondsToHumanReadable } = require("../utils/helper/jwt");
+const {
+  secondsToHumanReadable,
+  minutesToLocalDateString,
+  daysToLocalDateString,
+  generateToken,
+} = require("../utils/helper/jwt");
 const Tokendata = require("../models/TokenData");
 
 // Generate token valid for 1hr for authentication
@@ -9,15 +14,8 @@ const generateTokens = async (req, res) => {
 
     const payload = req.body;
 
-    const accessTokenExpiration = "30m"; //4 min
-    const refreshTokenExpiration = "7d"; //7 days
-
-    const accessToken = jwt.sign(payload, secretKey, {
-      expiresIn: accessTokenExpiration,
-    });
-    const refreshToken = jwt.sign(payload, secretKey, {
-      expiresIn: refreshTokenExpiration,
-    });
+    const accessToken = generateToken(payload, "30m");
+    const refreshToken = generateToken(payload, "7d");
 
     const accessTokenDecoded = jwt.decode(accessToken);
     const refreshTokenDecoded = jwt.decode(refreshToken);
@@ -30,15 +28,8 @@ const generateTokens = async (req, res) => {
     const accessTokenExp = secondsToHumanReadable(accessTokenTimeInSeconds);
     const refreshTokenExp = secondsToHumanReadable(refreshTokenTimeInSeconds);
 
-    const accessTokenValidityMinutes = 30; // 30 minutes
-    const accessTokenValidTill = new Date(
-      Date.now() + accessTokenValidityMinutes * 60 * 1000
-    ).toLocaleString();
-
-    const refreshTokenValidityDays = 7; // 7 days
-    const refreshTokenValidTill = new Date(
-      Date.now() + refreshTokenValidityDays * 24 * 60 * 60 * 1000
-    ).toLocaleString();
+    const accessTokenValidTill = minutesToLocalDateString(30);
+    const refreshTokenValidTill = daysToLocalDateString(7);
 
     // Save token data to the database
     await Tokendata.create({

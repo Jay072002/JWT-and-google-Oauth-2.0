@@ -3,7 +3,12 @@ const express = require("express");
 const cron = require("node-cron");
 const jwt = require("jsonwebtoken");
 const connect = require("./db/connect");
-const { secondsToHumanReadable } = require("./utils/helper/jwt");
+const {
+  secondsToHumanReadable,
+  generateToken,
+  daysToLocalDateString,
+  minutesToLocalDateString,
+} = require("./utils/helper/jwt");
 const router = require("./routes/index");
 const Tokendata = require("./models/TokenData");
 
@@ -13,11 +18,10 @@ const app = express();
 app.use(express.json());
 
 // App routes
-
 app.use("/api/v1", router);
 
-// generate new refresh token just before it gets expires
-cron.schedule("0 0 */7 * *", async () => {
+// generate new refresh token just before it gets expires (every 6 days)
+cron.schedule("* * */6 * *", async () => {
   console.log("Refresh token scheduler block");
 
   // Check the database for access token validity
@@ -32,11 +36,11 @@ cron.schedule("0 0 */7 * *", async () => {
 
   const currentTimestamp = Math.floor(Date.now() / 1000); //in seconds
   const refreshTokenExp = Math.floor(
-    tokenData.refresh_token_validity.getTime() / 1000 //in seconds
+    new Date(tokenData.refresh_token_validity).getTime() / 1000 //in seconds
   );
 
-  // Check if the refresh token is close to expiring (less than 7 days)
-  if (refreshTokenExp - currentTimestamp < 604800) {
+  // Check if the refresh token is close to expiring (less than 6 days)
+  if (refreshTokenExp - currentTimestamp < 518400) {
     console.log(
       "Refresh token is about to expire. Generating a new refresh token."
     );
@@ -47,14 +51,16 @@ cron.schedule("0 0 */7 * *", async () => {
     const verifiedPayload = jwt.verify(refreshToken, secretKey);
 
     if (verifiedPayload) {
+      // remove the iat and exp to give new expiration time or keep if want the same expiration time as before
       const { iat, exp, ...restVerifiedPayload } = verifiedPayload;
 
-      const newRefreshToken = jwt.sign(restVerifiedPayload, secretKey, {
-        expiresIn: "7d", // Set the new refrsh token expiration (e.g., 7 days)
-      });
+      const newRefreshToken = generateToken(restVerifiedPayload, "7d");
+
+      const refreshTokenValidTill = daysToLocalDateString(7);
 
       // Update the database with the new refresh token
       tokenData.refresh_token = newRefreshToken;
+      tokenData.refresh_token_validity = refreshTokenValidTill;
       await tokenData.save();
 
       const newRefreshTokenPayload = jwt.decode(newRefreshToken);
@@ -92,11 +98,9 @@ cron.schedule("*/30 * * * *", async () => {
     const currentTimeInMS = new Date(Date.now()).getTime();
 
     if (currentTimeInMS > accessTokenValidityInMS) {
-      console.log(
-        "Access token is about to expire. Generating a new refresh token."
-      );
+      console.log("Access token is expired. Generating a new access token.");
 
-      // Use the existing refresh token and generate a new access token
+      // Use the existing refresh token and generate a new access token and update the time
       const secretKey = process.env.SECRETKEY;
       const refreshToken = tokenData?.refresh_token;
       const verifiedPayload = jwt.verify(refreshToken, secretKey);
@@ -104,12 +108,12 @@ cron.schedule("*/30 * * * *", async () => {
       if (verifiedPayload) {
         const { iat, exp, ...restVerifiedPayload } = verifiedPayload;
 
-        const newAccessToken = jwt.sign(restVerifiedPayload, secretKey, {
-          expiresIn: "30m", // Set the new access token expiration (e.g., 30 minutes)
-        });
+        const newAccessToken = generateToken(restVerifiedPayload, "30m");
+        const accessTokenValidTill = minutesToLocalDateString(30);
 
         // Update the database with the new access token
         tokenData.access_token = newAccessToken;
+        tokenData.access_token_validity = accessTokenValidTill;
         await tokenData.save();
 
         const newAccessTokenPayload = jwt.decode(newAccessToken);

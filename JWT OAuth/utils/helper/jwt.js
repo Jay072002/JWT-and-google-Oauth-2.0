@@ -23,97 +23,48 @@ const secondsToHumanReadable = (seconds) => {
   return result;
 };
 
-const generateNewRefreshToken = (
-  existingRefreshToken,
-  newExpiration = "7d"
-) => {
-  const secretKey = process.env.SECRETKEY;
-
-  try {
-    const decoded = jwt.verify(existingRefreshToken, secretKey);
-
-    const expirationThreshold = Date.now() + 60 * 60 * 1000; // 1 hour in milliseconds
-    if (decoded.exp <= expirationThreshold) {
-      // The existing refresh token is about to expire, so generate a new one
-      const newRefreshToken = jwt.sign(decoded, secretKey, {
-        expiresIn: newExpiration,
-      });
-      return newRefreshToken;
-    }
-
-    // If the existing refresh token is not close to expiration, return it as is
-    return existingRefreshToken;
-  } catch (error) {
-    console.error("Could Not Generate New Refresh Token", error);
-    throw new Error("Could not generate a new refresh token.");
-  }
-};
-
 // Generate token valid for 1hr for authentication
-const generateToken = (payload) => {
+const generateToken = (payloadWithoutIatAndExp, expirationTime) => {
   try {
     const secretKey = process.env.SECRETKEY;
 
-    const accessTokenExpiration = "1h";
-    const refreshTokenExpiration = "7d";
-
-    const accessToken = jwt.sign(payload, secretKey, {
-      expiresIn: accessTokenExpiration,
-    });
-    const refreshToken = jwt.sign(payload, secretKey, {
-      expiresIn: refreshTokenExpiration,
+    const token = jwt.sign(payloadWithoutIatAndExp, secretKey, {
+      expiresIn: expirationTime,
     });
 
-    const accessTokenDecoded = jwt.decode(accessToken);
-    const refreshTokenDecoded = jwt.decode(refreshToken);
-
-    const accessTokenTimeInSeconds =
-      accessTokenDecoded.exp - accessTokenDecoded.iat;
-    const refreshTokenTimeInSeconds =
-      refreshTokenDecoded.exp - refreshTokenDecoded.iat;
-
-    const accessTokenExp = secondsToHumanReadable(accessTokenTimeInSeconds);
-    const refreshTokenExp = secondsToHumanReadable(refreshTokenTimeInSeconds);
-
-    return {
-      accessToken,
-      refreshToken,
-      accessTokenExp,
-      refreshTokenExp,
-    };
+    return token;
   } catch (error) {
     console.error("Could Not Generate Tokens", error);
     throw new Error("Could not generate tokens");
   }
 };
 
-// Generate new access token from the refresh token
-const generateAccessTokenFromRefreshToken = (refreshToken) => {
-  try {
-    const secretKey = process.env.SECRETKEY;
+const daysToLocalDateString = (days) => {
+  if (days) {
+    const localDateString = new Date(
+      Date.now() + parseInt(days) * 24 * 60 * 60 * 1000
+    ).toLocaleString();
+    return localDateString;
+  } else {
+    throw new Error("Days required to convert into date string");
+  }
+};
 
-    const verifiedPayload = jwt.verify(refreshToken, secretKey);
+const minutesToLocalDateString = (minutes) => {
+  if (minutes) {
+    const localDateString = new Date(
+      Date.now() + parseInt(minutes) * 60 * 1000
+    ).toLocaleString();
 
-    if (verifiedPayload) {
-      const newAccessToken = jwt.sign(verifiedPayload, secretKey);
-      const accessTokenDecoded = jwt.decode(newAccessToken);
-      const accessTokenExpHours = secondsToHumanReadable(
-        accessTokenDecoded.exp
-      );
-      return {
-        accessToken: newAccessToken,
-        accessTokenExp: accessTokenExpHours,
-      };
-    }
-  } catch (error) {
-    console.error("Could Not Generate New Access Token", error);
-    throw new Error("Could not generate New Access Token From Refresh Token");
+    return localDateString;
+  } else {
+    throw new Error("Minutes required to convert into date string");
   }
 };
 
 module.exports = {
   generateToken,
-  generateNewRefreshToken,
-  generateAccessTokenFromRefreshToken,
   secondsToHumanReadable,
+  daysToLocalDateString,
+  minutesToLocalDateString,
 };
