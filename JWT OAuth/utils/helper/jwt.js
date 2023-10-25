@@ -39,32 +39,7 @@ const generateToken = (payloadWithoutIatAndExp, expirationTime) => {
   }
 };
 
-const daysToLocalDateString = (days) => {
-  if (days) {
-    const localDateString = new Date(
-      Date.now() + parseInt(days) * 24 * 60 * 60 * 1000
-    ).toLocaleString();
-    return localDateString;
-  } else {
-    throw new Error("Days required to convert into date string");
-  }
-};
-
-const minutesToLocalDateString = (minutes) => {
-  if (minutes) {
-    const localDateString = new Date(
-      Date.now() + parseInt(minutes) * 60 * 1000
-    ).toLocaleString();
-
-    return localDateString;
-  } else {
-    throw new Error("Minutes required to convert into date string");
-  }
-};
-
 module.exports = {
   generateToken,
   secondsToHumanReadable,
-  daysToLocalDateString,
-  minutesToLocalDateString,
 };

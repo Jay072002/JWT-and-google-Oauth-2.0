@@ -1,8 +1,10 @@
 const { Sequelize } = require("sequelize");
 
 function connectToDatabase() {
-  const sequelize = new Sequelize("jwt", "jay", "(Jay)@12345", {
-    host: "localhost",
+  const { DBNAME, DBHOST, DBUSERNAME, DBPASSWORD } = process.env;
+
+  const sequelize = new Sequelize(DBNAME, DBUSERNAME, DBPASSWORD, {
+    host: DBHOST,
     dialect: "mysql",
   });
 
